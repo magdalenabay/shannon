@@ -1,0 +1,42 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.11", "3.12", "3.13"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install backends (linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg imagemagick pandoc poppler-utils \
+            tesseract-ocr webp libheif-examples libavif-bin img2pdf p7zip-full
+
+      - name: Install backends (macos)
+        if: runner.os == 'macOS'
+        run: |
+          brew install ffmpeg imagemagick pandoc poppler tesseract \
+            webp libheif libavif img2pdf sevenzip
+
+      - name: Install shannon
+        run: |
+          pip install -e ".[dev]"
+
+      - name: Run tests
+        run: pytest -q

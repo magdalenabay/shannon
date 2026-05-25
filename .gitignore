@@ -1,0 +1,20 @@
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.DS_Store
+tests/fixtures/_actual_*
+
+# Demo run outputs — only the seed inputs + tape + gif are tracked
+examples/clip.mp3
+examples/clip.gif
+examples/photo.webp
+examples/notes.docx
+examples/scan.txt
+examples/*.jpg
+examples/*.pdf
