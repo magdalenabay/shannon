@@ -107,4 +107,7 @@ def avif_to_image(src: Path, dst: Path, opts: Opts) -> None:
     priority=10,
 )
 def svg_to_raster(src: Path, dst: Path, opts: Opts) -> None:
-    image_to_image(src, dst, opts)
+    out_fmt = dst.suffix.lstrip(".").lower()
+    bg = ["-background", "none"] if out_fmt in ("png", "webp") else []
+    cmd = ["magick", *bg, str(src), *_magick_extras(out_fmt, opts), str(dst)]
+    run(cmd, verbose=opts.verbose)
