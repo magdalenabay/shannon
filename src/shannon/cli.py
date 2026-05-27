@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
+import subprocess
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 from . import converters as _converters  # noqa: F401 — registers all converters
@@ -22,6 +26,9 @@ from .types import Opts
 
 
 __version__ = "0.1.0"
+
+REPO_URL = "https://github.com/magdalenabay/shannon"
+REPO_API = "https://api.github.com/repos/magdalenabay/shannon"
 
 
 def cmd_list() -> int:
@@ -71,6 +78,66 @@ def cmd_doctor() -> int:
 
 def cmd_install_all(args: argparse.Namespace) -> int:
     return install_all(auto_yes=args.yes, heavy=args.heavy)
+
+
+def _fetch_latest_commit(ref: str = "main", timeout: float = 5.0) -> dict | None:
+    url = f"{REPO_API}/commits/{ref}"
+    req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
+        return None
+
+
+def cmd_check_updates() -> int:
+    print(f"Installed: shannon {__version__}")
+    data = _fetch_latest_commit()
+    if data is None:
+        print("error: could not reach GitHub to check for updates", file=sys.stderr)
+        return 1
+    sha = (data.get("sha") or "")[:7]
+    commit = data.get("commit") or {}
+    msg = (commit.get("message") or "").splitlines()[0] if commit else ""
+    author = (commit.get("author") or {}).get("date", "")
+    print(f"Latest main: {sha}  {author}")
+    if msg:
+        print(f"             {msg}")
+    print("\nRun `shannon --update` to install the latest commit.")
+    return 0
+
+
+def cmd_update(auto_yes: bool = False) -> int:
+    uv = shutil.which("uv")
+    if uv is None:
+        print(
+            "error: 'uv' not found on PATH.\n"
+            "  shannon is installed via uv; install it from https://astral.sh/uv\n"
+            "  or re-run the installer:\n"
+            f"    curl -fsSL {REPO_URL}/raw/main/install.sh | sh   (macOS/Linux)\n"
+            f"    irm  {REPO_URL}/raw/main/install.ps1 | iex      (Windows)",
+            file=sys.stderr,
+        )
+        return 1
+
+    target = f"git+{REPO_URL}@main"
+    if not auto_yes:
+        print(f"This will run: uv tool install --force {target}")
+        try:
+            ans = input("Proceed? [Y/n] ").strip().lower()
+        except EOFError:
+            ans = "y"
+        if ans and ans not in ("y", "yes"):
+            print("aborted.")
+            return 1
+
+    print(f"-> updating shannon from {REPO_URL}@main...")
+    proc = subprocess.run([uv, "tool", "install", "--force", target])
+    if proc.returncode != 0:
+        print("error: update failed", file=sys.stderr)
+        return proc.returncode
+    print("✓ shannon updated. Run `shannon --version` to confirm.")
+    return 0
 
 
 def _category_preference(opts: Opts) -> str | None:
@@ -189,6 +256,8 @@ def build_parser() -> argparse.ArgumentParser:
             "  shannon clip.webm wav --quality high\n"
             "  shannon --doctor                  see backend status\n"
             "  shannon --install-all             install light backends\n"
+            "  shannon --check-updates           see if a newer commit is on GitHub\n"
+            "  shannon --update                  reinstall from latest commit\n"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -201,6 +270,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--doctor", action="store_true", help="show backend install status")
     p.add_argument(
         "--install-all", action="store_true", help="install all light backends"
+    )
+    p.add_argument(
+        "--update",
+        action="store_true",
+        help="reinstall shannon from the latest commit on GitHub",
+    )
+    p.add_argument(
+        "--check-updates",
+        action="store_true",
+        help="check GitHub for newer commits without installing",
     )
     p.add_argument(
         "--heavy",
@@ -247,6 +326,10 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_doctor()
     if args.install_all:
         return cmd_install_all(args)
+    if args.check_updates:
+        return cmd_check_updates()
+    if args.update:
+        return cmd_update(auto_yes=args.yes)
 
     if len(args.args) < 2:
         parser.print_help()
