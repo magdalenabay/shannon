@@ -29,7 +29,7 @@ OFFICE_FORMATS = (
     outputs=OFFICE_FORMATS,
     requires=("soffice",),
     category="office",
-    priority=5,
+    priority=8,
     heavy=True,
 )
 def office_to_office(src: Path, dst: Path, opts: Opts) -> None:

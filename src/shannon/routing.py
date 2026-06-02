@@ -29,7 +29,10 @@ def find_chain(
     if direct:
         return ([in_fmt, out_fmt], [direct[0]])
 
-    specs_all = all_specs()
+    # Try higher-priority converters first so chained hops pick the intended
+    # backend (e.g. libreoffice over calibre for html -> pdf) instead of
+    # whichever happened to register first.
+    specs_all = sorted(all_specs(), key=lambda s: (-s.priority, s.name))
     queue: deque[tuple[str, list[str], list[ConverterSpec]]] = deque(
         [(in_fmt, [in_fmt], [])]
     )
