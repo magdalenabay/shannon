@@ -84,3 +84,12 @@ def test_archive_native_repack_no_requires():
 def test_subtitle_direct():
     chain = find_chain("srt", "vtt")
     assert chain is not None
+
+
+def test_svg_to_every_raster_is_direct():
+    for fmt in ("png", "jpg", "webp", "gif", "bmp", "tiff", "ico"):
+        chain = find_chain("svg", fmt)
+        assert chain is not None, fmt
+        fmt_path, specs = chain
+        assert fmt_path == ["svg", fmt]
+        assert specs[0].name == "svg_to_raster"

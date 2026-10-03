@@ -88,4 +88,4 @@ Batches: `shannon *.heic jpg` writes a `.jpg` next to each `.heic`. With more th
 | OCR      | png/jpg/pdf → txt                                     | tesseract |
 | Native   | json↔yaml↔toml, csv↔json                              | python only |
 
-`shannon --list` gives the per-converter breakdown. When a conversion needs two backends in a row (`svg → png → ico`), shannon chains them through a temp file.
+`shannon --list` gives the per-converter breakdown. When a conversion needs two backends in a row (`heic → jpg → webp`), shannon chains them through a temp file.

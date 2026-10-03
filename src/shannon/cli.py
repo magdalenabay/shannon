@@ -316,6 +316,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Status marks (✓/✗) can't be encoded on legacy Windows code pages when
+    # output is piped; degrade them instead of crashing after a good convert.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="replace")
     parser = build_parser()
     # parse_intermixed_args lets users put flags anywhere in the command line.
     args = parser.parse_intermixed_args(argv)

@@ -17,6 +17,9 @@ def _magick_extras(out_fmt: str, opts: Opts) -> list[str]:
     if out_fmt in ("jpg", "webp"):
         q = {"low": "60", "medium": "85", "high": "95"}[opts.quality]
         args += ["-quality", q]
+    if out_fmt == "ico" and not opts.scale:
+        # ICO caps at 256px; build a standard multi-size icon instead of failing.
+        args += ["-define", "icon:auto-resize=256,128,64,48,32,16"]
     return args
 
 
@@ -101,13 +104,13 @@ def avif_to_image(src: Path, dst: Path, opts: Opts) -> None:
 
 @register(
     inputs=("svg",),
-    outputs=("png", "jpg", "webp"),
+    outputs=("png", "jpg", "webp", "gif", "bmp", "tiff", "ico"),
     requires=("magick",),
     category="image",
     priority=10,
 )
 def svg_to_raster(src: Path, dst: Path, opts: Opts) -> None:
     out_fmt = dst.suffix.lstrip(".").lower()
-    bg = ["-background", "none"] if out_fmt in ("png", "webp") else []
+    bg = [] if out_fmt in ("jpg", "bmp") else ["-background", "none"]
     cmd = ["magick", *bg, str(src), *_magick_extras(out_fmt, opts), str(dst)]
     run(cmd, verbose=opts.verbose)

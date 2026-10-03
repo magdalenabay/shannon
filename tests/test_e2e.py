@@ -16,7 +16,7 @@ from shannon import converters  # noqa: F401
 from shannon.converters.archive import _do_repack
 from shannon.converters.audio import audio_to_audio
 from shannon.converters.document import doc_to_doc
-from shannon.converters.image import image_to_image, image_to_webp
+from shannon.converters.image import image_to_image, image_to_webp, svg_to_raster
 from shannon.converters.native import structured_convert
 from shannon.converters.ocr import image_ocr_txt
 from shannon.converters.pdf import image_to_pdf, pdf_to_txt
@@ -158,6 +158,52 @@ def test_png_to_webp(tmp_path):
     gen_png(src)
     image_to_webp(src, dst, Opts())
     assert dst.exists() and dst.stat().st_size > 30
+
+
+def gen_svg(path: Path, size: int = 64) -> None:
+    r = size * 3 // 8
+    path.write_text(
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}">'
+        f'<circle cx="{size // 2}" cy="{size // 2}" r="{r}" fill="#c0f"/></svg>'
+    )
+
+
+@pytest.mark.skipif(not has("magick"), reason="imagemagick not installed")
+@pytest.mark.parametrize("fmt", ["png", "jpg", "webp", "gif", "bmp", "tiff", "ico"])
+def test_svg_to_raster(tmp_path, fmt):
+    src = tmp_path / "in.svg"
+    dst = tmp_path / f"out.{fmt}"
+    gen_svg(src)
+    svg_to_raster(src, dst, Opts())
+    assert dst.exists() and dst.stat().st_size > 30
+
+
+@pytest.mark.skipif(not has("magick"), reason="imagemagick not installed")
+@pytest.mark.parametrize("fmt", ["png", "gif", "ico"])
+def test_svg_keeps_transparency(tmp_path, fmt):
+    src = tmp_path / "in.svg"
+    dst = tmp_path / f"out.{fmt}"
+    gen_svg(src)
+    svg_to_raster(src, dst, Opts())
+    corner = subprocess.run(
+        ["magick", f"{dst}[0]", "-format", "%[fx:p{0,0}.a]", "info:"],
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    assert float(corner) == 0.0
+
+
+@pytest.mark.skipif(not has("magick"), reason="imagemagick not installed")
+def test_large_svg_to_ico(tmp_path):
+    """ICO caps at 256px; a big SVG should still produce a multi-size icon."""
+    src = tmp_path / "in.svg"
+    dst = tmp_path / "out.ico"
+    gen_svg(src, size=1024)
+    svg_to_raster(src, dst, Opts())
+    sizes = subprocess.run(
+        ["magick", "identify", "-format", "%w\n", str(dst)],
+        capture_output=True, text=True, check=True,
+    ).stdout.split()
+    assert "256" in sizes and "16" in sizes
 
 
 # ----- ocr -----
