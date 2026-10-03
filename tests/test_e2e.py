@@ -444,3 +444,21 @@ def test_cli_list_runs(capsys):
     out = capsys.readouterr().out
     assert "[audio]" in out
     assert "[video]" in out
+
+
+def test_cli_expands_wildcards_itself(tmp_path):
+    """PowerShell/cmd pass `*.json` through literally; shannon must glob it."""
+    from shannon.cli import main
+    (tmp_path / "a.json").write_text('{"x": 1}')
+    (tmp_path / "b.json").write_text('{"y": 2}')
+    rc = main([str(tmp_path / "*.json"), "yaml"])
+    assert rc == 0
+    assert (tmp_path / "a.yaml").exists()
+    assert (tmp_path / "b.yaml").exists()
+
+
+def test_cli_wildcard_with_no_matches(tmp_path, capsys):
+    from shannon.cli import main
+    rc = main([str(tmp_path / "*.nope"), "png"])
+    assert rc == 2
+    assert "no files match" in capsys.readouterr().err

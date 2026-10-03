@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import shutil
 import subprocess
@@ -315,6 +316,25 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def expand_inputs(raw: list[str]) -> tuple[list[Path], list[str]]:
+    """Expand wildcards ourselves: PowerShell and cmd pass `*.svg` through
+    literally, unlike POSIX shells. Returns (inputs, patterns that matched nothing).
+    """
+    inputs: list[Path] = []
+    unmatched: list[str] = []
+    for arg in raw:
+        path = Path(arg).expanduser()
+        if path.exists() or not any(c in arg for c in "*?["):
+            inputs.append(path)
+            continue
+        matches = sorted(glob.glob(str(path), recursive=True))
+        if matches:
+            inputs.extend(Path(m) for m in matches)
+        else:
+            unmatched.append(arg)
+    return inputs, unmatched
+
+
 def main(argv: list[str] | None = None) -> int:
     # Status marks (✓/✗) can't be encoded on legacy Windows code pages when
     # output is piped; degrade them instead of crashing after a good convert.
@@ -340,7 +360,11 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help()
         return 1
 
-    inputs = [Path(p).expanduser() for p in args.args[:-1]]
+    inputs, unmatched = expand_inputs(args.args[:-1])
+    for pattern in unmatched:
+        print(f"error: no files match {pattern}", file=sys.stderr)
+    if not inputs:
+        return 2
     target = args.args[-1]
     opts = Opts(
         quality=args.quality,
@@ -352,7 +376,7 @@ def main(argv: list[str] | None = None) -> int:
         heavy=args.heavy,
         verbose=args.verbose,
     )
-    return do_convert(
+    rc = do_convert(
         inputs,
         target,
         opts,
@@ -360,6 +384,7 @@ def main(argv: list[str] | None = None) -> int:
         allow_heavy=args.heavy,
         dry_run=args.dry_run,
     )
+    return rc or (2 if unmatched else 0)
 
 
 if __name__ == "__main__":

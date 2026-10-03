@@ -57,6 +57,8 @@ shannon <input> <target> [options]
 
 Batches: `shannon *.heic jpg` writes a `.jpg` next to each `.heic`. With more than one input the target has to be a bare format.
 
+shannon expands wildcards itself, so this works the same in PowerShell and cmd. `**` recurses: `shannon "assets/**/*.svg" png` does every SVG under `assets/`.
+
 ### Options
 
 | Flag                          | What it does                                       |
